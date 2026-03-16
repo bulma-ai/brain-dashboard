@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Bulma's Brain Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eee;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 1.1rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        
+        .card h2 {
+            color: #00d4ff;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .card h3 {
+            color: #7b2cbf;
+            margin: 1rem 0 0.5rem 0;
+            font-size: 1rem;
+        }
+        
+        .card p, .card li {
+            color: #ccc;
+            line-height: 1.6;
+            margin-bottom: 0.5rem;
+        }
+        
+        .card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .card li::before {
+            content: "→ ";
+            color: #00d4ff;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: rgba(0,212,255,0.2);
+            color: #00d4ff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin: 0.25rem;
+        }
+        
+        .skill-item {
+            background: rgba(123,44,191,0.2);
+            border-left: 3px solid #7b2cbf;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .skill-name {
+            color: #fff;
+            font-weight: 600;
+        }
+        
+        .skill-desc {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+        
+        .system-info {
+            background: rgba(0,212,255,0.1);
+            border: 1px solid rgba(0,212,255,0.3);
+        }
+        
+        .system-info code {
+            background: rgba(0,0,0,0.3);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding: 1rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .api-link {
+            color: #00d4ff;
+            text-decoration: none;
+        }
+        
+        .api-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 Bulma's Brain</h1>
+            <p class="subtitle">Digital Assistant Configuration Dashboard</p>
+        </header>
+        
+        <div class="grid">
+            <!-- Identity Card -->
+            <div class="card">
+                <h2>👤 Identity</h2>
+                {% for section, content in identity.items() %}
+                    {% if section != "General" %}
+                        <h3>{{ section }}</h3>
+                        <p>{{ content | safe }}</p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <!-- User Card -->
+            <div class="card">
+                <h2>🧑‍💻 User</h2>
+                {% for section, content in user.items() %}
+                    {% if section != "General" %}
+                        <h3>{{ section }}</h3>
+                        <p>{{ content | safe }}</p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <!-- Soul Card -->
+            <div class="card">
+                <h2>💫 Soul</h2>
+                {% for section, content in soul.items() %}
+                    {% if section != "General" %}
+                        <h3>{{ section }}</h3>
+                        <p>{{ content | safe }}</p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <!-- Tools Card -->
+            <div class="card">
+                <h2>🛠️ Tools</h2>
+                {% for section, content in tools.items() %}
+                    {% if section != "General" %}
+                        <h3>{{ section }}</h3>
+                        <p>{{ content | safe }}</p>
+                    {% endif %n                {% endfor %}
+            </div>
+            
+            <!-- Skills Card -->
+            <div class="card">
+                <h2>📚 Skills ({{ skills|length }})</h2>
+                {% for skill in skills %}
+                    <div class="skill-item">
+                        <div class="skill-name">{{ skill.name }}</div>
+                        <div class="skill-desc">{{ skill.description[:100] }}{% if skill.description|length > 100 %}...{% endif %}</div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <!-- System Card -->
+            <div class="card system-info">
+                <h2>⚙️ System</h2>
+                <p><strong>Workspace:</strong> <code>{{ system.workspace }}</code></p>
+                <p><strong>Git User:</strong> <code>{{ system.git_user }}</code></p>
+                <p><strong>GitHub User:</strong> <code>{{ system.github_user }}</code></p>
+                <p><strong>Available Skills:</strong> {{ system.skills_count }}</p>
+            </div>
+        </div>
+        
+        <footer>
+            <p>API available at <a href="/api/brain" class="api-link">/api/brain</a></p>
+            <p>Bulma 🔧 — Built for Christian</p>
+        </footer>
+    </div>
+</body>
+</html>
