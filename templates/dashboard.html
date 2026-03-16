@@ -20,7 +20,7 @@
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
         
@@ -44,6 +44,12 @@
         .subtitle {
             color: #888;
             font-size: 1.1rem;
+        }
+        
+        .timestamp {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
         }
         
         .grid {
@@ -135,6 +141,94 @@
             padding: 0.2rem 0.5rem;
             border-radius: 4px;
             font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.85rem;
+        }
+        
+        /* Services Table */
+        .services-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+        }
+        
+        .services-table th,
+        .services-table td {
+            padding: 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .services-table th {
+            color: #00d4ff;
+            font-weight: 600;
+        }
+        
+        .services-table td {
+            color: #ccc;
+        }
+        
+        .status-running {
+            color: #4ade80;
+        }
+        
+        .status-stopped {
+            color: #f87171;
+        }
+        
+        /* Tools Table */
+        .tools-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .tools-table th,
+        .tools-table td {
+            padding: 0.4rem 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .tools-table th {
+            color: #00d4ff;
+            font-weight: 600;
+        }
+        
+        .tools-table td {
+            color: #ccc;
+        }
+        
+        .tool-version {
+            color: #888;
+            font-size: 0.8rem;
+        }
+        
+        /* Network Info */
+        .network-info {
+            background: rgba(123,44,191,0.1);
+            border: 1px solid rgba(123,44,191,0.3);
+        }
+        
+        .network-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .network-row:last-child {
+            border-bottom: none;
+        }
+        
+        .network-label {
+            color: #888;
+        }
+        
+        .network-value {
+            color: #fff;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
         }
         
         footer {
@@ -153,6 +247,19 @@
         .api-link:hover {
             text-decoration: underline;
         }
+        
+        .wide-card {
+            grid-column: 1 / -1;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .wide-card {
+                grid-column: 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -160,6 +267,7 @@
         <header>
             <h1>🔧 Bulma's Brain</h1>
             <p class="subtitle">Digital Assistant Configuration Dashboard</p>
+            <p class="timestamp">Last updated: {{ system.timestamp }}</p>
         </header>
         
         <div class="grid">
@@ -196,9 +304,9 @@
                 {% endfor %}
             </div>
             
-            <!-- Tools Card -->
+            <!-- Tools Config Card -->
             <div class="card">
-                <h2>🛠️ Tools</h2>
+                <h2>🛠️ Tools Config</h2>
                 {% for section, content in tools.items() %}
                     {% if section != "General" %}
                         <h3>{{ section }}</h3>
@@ -218,7 +326,78 @@
                 {% endfor %}
             </div>
             
-            <!-- System Card -->
+            <!-- Network Info Card -->
+            <div class="card network-info">
+                <h2>🌐 Network</h2>
+                <div class="network-row">
+                    <span class="network-label">Public IP:</span>
+                    <span class="network-value">{{ system.network.public_ip }}</span>
+                </div>
+                <div class="network-row">
+                    <span class="network-label">Local IP:</span>
+                    <span class="network-value">{{ system.network.local_ip }}</span>
+                </div>
+                <div class="network-row">
+                    <span class="network-label">Hostname:</span>
+                    <span class="network-value">{{ system.network.hostname }}</span>
+                </div>
+            </div>
+            
+            <!-- Running Services Card -->
+            <div class="card wide-card">
+                <h2>⚡ Running Services</h2>
+                {% if system.services %}
+                    <table class="services-table">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>PID</th>
+                                <th>Port</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for service in system.services %}
+                            <tr>
+                                <td>{{ service.name }}</td>
+                                <td><code>{{ service.pid }}</code></td>
+                                <td><code>{{ service.port }}</code></td>
+                                <td class="status-running">{{ service.status }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No services currently running.</p>
+                {% endif %}
+            </div>
+            
+            <!-- Installed Tools Card -->
+            <div class="card wide-card">
+                <h2>🔧 Installed Tools</h2>
+                <table class="tools-table">
+                    <thead>
+                        <tr>
+                            <th>Tool</th>
+                            <th>Command</th>
+                            <th>Version</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tool in system.installed_tools %}
+                        <tr>
+                            <td>{{ tool.name }}</td>
+                            <td><code>{{ tool.command }}</code></td>
+                            <td class="tool-version">{{ tool.version }}</td>
+                            <td>{{ tool.status }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- System Info Card -->
             <div class="card system-info">
                 <h2>⚙️ System</h2>
                 <p><strong>Workspace:</strong> <code>{{ system.workspace }}</code></p>
