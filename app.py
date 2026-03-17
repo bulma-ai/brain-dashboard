@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Bulma's Brain Dashboard - A simple view into my configuration."""
+"""Bulma's Brain Dashboard - Real-time system monitoring."""
 
 import json
 import os
 import subprocess
+import psutil
+import socket
 from pathlib import Path
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
 import datetime
 
 app = Flask(__name__)
@@ -46,9 +48,91 @@ def parse_markdown_sections(content):
     
     return sections
 
+def get_system_resources():
+    """Get real-time system resource usage."""
+    resources = {}
+    
+    try:
+        # CPU usage
+        resources['cpu_percent'] = psutil.cpu_percent(interval=0.5)
+        resources['cpu_count'] = psutil.cpu_count()
+        resources['cpu_freq'] = psutil.cpu_freq().current if psutil.cpu_freq() else 0
+        
+        # Memory usage
+        mem = psutil.virtual_memory()
+        resources['memory'] = {
+            'total': mem.total / (1024**3),  # GB
+            'available': mem.available / (1024**3),
+            'used': mem.used / (1024**3),
+            'percent': mem.percent
+        }
+        
+        # Disk usage
+        disk = psutil.disk_usage('/')
+        resources['disk'] = {
+            'total': disk.total / (1024**3),
+            'used': disk.used / (1024**3),
+            'free': disk.free / (1024**3),
+            'percent': disk.percent
+        }
+        
+        # Load average (Unix only)
+        try:
+            load1, load5, load15 = os.getloadavg()
+            resources['load_avg'] = {'1min': load1, '5min': load5, '15min': load15}
+        except:
+            resources['load_avg'] = {'1min': 0, '5min': 0, '15min': 0}
+            
+    except Exception as e:
+        resources['error'] = str(e)
+    
+    return resources
+
+def get_open_ports():
+    """Get all open ports and listening services."""
+    ports = []
+    
+    try:
+        # Get network connections
+        connections = psutil.net_connections(kind='inet')
+        
+        for conn in connections:
+            if conn.status == 'LISTEN':
+                try:
+                    port_info = {
+                        'port': conn.laddr.port,
+                        'address': conn.laddr.ip,
+                        'protocol': 'TCP',
+                        'status': conn.status,
+                        'pid': conn.pid,
+                        'process': 'Unknown'
+                    }
+                    
+                    # Get process name
+                    if conn.pid:
+                        try:
+                            proc = psutil.Process(conn.pid)
+                            port_info['process'] = proc.name()
+                            port_info['cmdline'] = ' '.join(proc.cmdline())[:50] if proc.cmdline() else ''
+                        except:
+                            pass
+                    
+                    ports.append(port_info)
+                except:
+                    pass
+        
+        # Sort by port number
+        ports.sort(key=lambda x: x['port'])
+        
+    except Exception as e:
+        ports.append({'error': str(e)})
+    
+    return ports
+
 def get_running_services():
     """Get list of running services and ports."""
     services = []
+    
     try:
         # Get OpenClaw processes
         result = subprocess.run(['pgrep', '-a', 'openclaw'], capture_output=True, text=True)
@@ -58,55 +142,75 @@ def get_running_services():
                 if len(parts) >= 2:
                     pid, cmd = parts
                     services.append({
-                        "name": cmd.split('/')[-1] if '/' in cmd else cmd,
+                        "name": "OpenClaw Gateway",
                         "pid": pid,
-                        "port": "18789" if "gateway" in cmd else "—",
-                        "status": "Running"
+                        "port": "18789",
+                        "status": "Running",
+                        "type": "system"
                     })
         
         # Get Python/Flask processes
-        result = subprocess.run(['pgrep', '-a', 'Python'], capture_output=True, text=True)
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                cmdline = ' '.join(proc.info['cmdline']) if proc.info['cmdline'] else ''
+                if 'app.py' in cmdline and 'brain-dashboard' in cmdline:
+                    services.append({
+                        "name": "Brain Dashboard",
+                        "pid": str(proc.info['pid']),
+                        "port": "5000",
+                        "status": "Running",
+                        "type": "app"
+                    })
+            except:
+                pass
+        
+        # Check Ollama
+        result = subprocess.run(['pgrep', '-a', 'ollama'], capture_output=True, text=True)
         if result.stdout:
             for line in result.stdout.strip().split('\n'):
-                if 'app.py' in line:
+                if 'ollama' in line:
                     parts = line.split(maxsplit=1)
                     if len(parts) >= 2:
                         pid, cmd = parts
                         services.append({
-                            "name": "Brain Dashboard (Flask)",
+                            "name": "Ollama",
                             "pid": pid,
-                            "port": "5000",
-                            "status": "Running"
+                            "port": "11434",
+                            "status": "Running",
+                            "type": "ai"
                         })
-    except:
-        pass
+                        break
+        
+    except Exception as e:
+        services.append({"name": "Error", "error": str(e)})
+    
     return services
 
 def get_installed_tools():
-    """Get list of installed tools."""
+    """Get list of installed tools with versions."""
     tools = []
     
-    # Check for common tools
     tool_checks = [
-        ("openclaw", "OpenClaw Gateway"),
-        ("gh", "GitHub CLI"),
-        ("git", "Git"),
-        ("python3", "Python 3"),
-        ("node", "Node.js"),
-        ("brew", "Homebrew"),
-        ("docker", "Docker"),
-        ("code", "VS Code"),
-        ("cursor", "Cursor"),
+        ("openclaw", "OpenClaw", "openclaw --version"),
+        ("gh", "GitHub CLI", "gh --version"),
+        ("git", "Git", "git --version"),
+        ("python3", "Python 3", "python3 --version"),
+        ("node", "Node.js", "node --version"),
+        ("brew", "Homebrew", "brew --version"),
+        ("docker", "Docker", "docker --version"),
+        ("code", "VS Code", "code --version"),
     ]
     
-    for cmd, name in tool_checks:
+    for cmd, name, version_cmd in tool_checks:
         try:
             result = subprocess.run(['which', cmd], capture_output=True, text=True)
             if result.returncode == 0:
                 # Get version
                 try:
-                    ver_result = subprocess.run([cmd, '--version'], capture_output=True, text=True, timeout=2)
-                    version = ver_result.stdout.strip().split('\n')[0][:30] if ver_result.stdout else "installed"
+                    ver_result = subprocess.run(version_cmd.split(), capture_output=True, text=True, timeout=2)
+                    version = ver_result.stdout.strip().split('\n')[0][:40] if ver_result.stdout else "installed"
+                    if ver_result.stderr and not version:
+                        version = ver_result.stderr.strip().split('\n')[0][:40]
                 except:
                     version = "installed"
                 tools.append({"name": name, "command": cmd, "version": version, "status": "✅"})
@@ -122,7 +226,8 @@ def get_network_info():
     info = {
         "public_ip": "Unknown",
         "local_ip": "Unknown",
-        "hostname": "Unknown"
+        "hostname": "Unknown",
+        "mac_address": "Unknown"
     }
     
     try:
@@ -150,24 +255,46 @@ def get_network_info():
     except:
         pass
     
-    return info
-
-def get_openclaw_status():
-    """Get OpenClaw status."""
+    # Get MAC address
     try:
-        result = subprocess.run(['openclaw', 'status'], capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            lines = result.stdout.split('\n')
-            status_info = {}
-            for line in lines:
-                if 'Gateway' in line and 'port' in line.lower():
-                    status_info['gateway'] = 'Running'
-                if 'Dashboard' in line:
-                    status_info['dashboard'] = line.strip()
-            return status_info
+        for interface, addrs in psutil.net_if_addrs().items():
+            if interface in ['en0', 'en1', 'eth0']:
+                for addr in addrs:
+                    if addr.family == psutil.AF_LINK:
+                        info["mac_address"] = addr.address
+                        break
     except:
         pass
-    return {"status": "Unknown"}
+    
+    return info
+
+def get_process_list():
+    """Get top processes by CPU and memory."""
+    processes = []
+    
+    try:
+        procs = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'memory_info']):
+            try:
+                pinfo = proc.info
+                procs.append({
+                    'pid': pinfo['pid'],
+                    'name': pinfo['name'][:25],
+                    'cpu': pinfo['cpu_percent'] or 0,
+                    'memory': pinfo['memory_percent'] or 0,
+                    'memory_mb': (pinfo['memory_info'].rss / 1024 / 1024) if pinfo['memory_info'] else 0
+                })
+            except:
+                pass
+        
+        # Sort by memory usage and get top 10
+        procs.sort(key=lambda x: x['memory'], reverse=True)
+        processes = procs[:10]
+        
+    except Exception as e:
+        processes = [{'error': str(e)}]
+    
+    return processes
 
 @app.route('/')
 def dashboard():
@@ -206,28 +333,12 @@ def dashboard():
                             break
                     skills.append({"name": name, "description": desc})
     
-    # Get running services
-    services = get_running_services()
-    
-    # Get installed tools
-    installed_tools = get_installed_tools()
-    
-    # Get network info
-    network = get_network_info()
-    
-    # Get OpenClaw status
-    openclaw_status = get_openclaw_status()
-    
     # System info
     system_info = {
         "workspace": str(WORKSPACE),
         "skills_count": len(skills),
         "git_user": os.popen("git config user.name").read().strip(),
         "github_user": "bulma-ai",
-        "services": services,
-        "installed_tools": installed_tools,
-        "network": network,
-        "openclaw": openclaw_status,
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     
@@ -239,6 +350,19 @@ def dashboard():
                          skills=skills,
                          system=system_info)
 
+@app.route('/api/system')
+def api_system():
+    """API endpoint for real-time system data."""
+    return jsonify({
+        "resources": get_system_resources(),
+        "ports": get_open_ports(),
+        "services": get_running_services(),
+        "processes": get_process_list(),
+        "network": get_network_info(),
+        "tools": get_installed_tools(),
+        "timestamp": datetime.datetime.now().isoformat()
+    })
+
 @app.route('/api/brain')
 def api_brain():
     """API endpoint returning brain data as JSON."""
@@ -247,12 +371,9 @@ def api_brain():
         "user": parse_markdown_sections(read_file(WORKSPACE / "USER.md")),
         "soul": parse_markdown_sections(read_file(WORKSPACE / "SOUL.md")),
         "tools": parse_markdown_sections(read_file(WORKSPACE / "TOOLS.md")),
-        "services": get_running_services(),
-        "installed_tools": get_installed_tools(),
-        "network": get_network_info(),
         "timestamp": datetime.datetime.now().isoformat()
     }
-    return json.dumps(data, indent=2)
+    return jsonify(data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
