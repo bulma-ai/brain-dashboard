@@ -249,6 +249,8 @@ def get_installed_tools():
 
 def get_network_info():
     """Get network information."""
+    import socket
+    
     info = {
         'public_ip': 'Unknown',
         'local_ip': 'Unknown',
@@ -256,23 +258,33 @@ def get_network_info():
         'mac_address': 'Unknown'
     }
     
+    # Get local IP using socket (most reliable method)
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        info['local_ip'] = s.getsockname()[0]
+        s.close()
+    except:
+        pass
+    
+    # Fallback to ipconfig if socket fails
+    if info['local_ip'] == 'Unknown':
+        try:
+            result = subprocess.run(['ipconfig', 'getifaddr', 'en0'], capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip():
+                info['local_ip'] = result.stdout.strip()
+            else:
+                result = subprocess.run(['ipconfig', 'getifaddr', 'en1'], capture_output=True, text=True)
+                if result.returncode == 0 and result.stdout.strip():
+                    info['local_ip'] = result.stdout.strip()
+        except:
+            pass
+    
     try:
         # Get public IP
         result = subprocess.run(['curl', '-s', 'https://api.ipify.org'], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             info['public_ip'] = result.stdout.strip()
-    except:
-        pass
-    
-    try:
-        # Get local IP
-        result = subprocess.run(['ipconfig', 'getifaddr', 'en0'], capture_output=True, text=True)
-        if result.returncode == 0:
-            info['local_ip'] = result.stdout.strip()
-        else:
-            result = subprocess.run(['ipconfig', 'getifaddr', 'en1'], capture_output=True, text=True)
-            if result.returncode == 0:
-                info['local_ip'] = result.stdout.strip()
     except:
         pass
     
