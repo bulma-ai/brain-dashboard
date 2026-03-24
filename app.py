@@ -134,26 +134,27 @@ def get_running_services():
     services = []
     
     try:
-        # Get OpenClaw processes
-        result = subprocess.run(['pgrep', '-a', 'openclaw'], capture_output=True, text=True)
-        if result.stdout:
-            for line in result.stdout.strip().split('\n'):
-                parts = line.split(maxsplit=1)
-                if len(parts) >= 2:
-                    pid, cmd = parts
+        # Check OpenClaw Gateway
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if 'openclaw' in proc.info['name'].lower():
+                    cmdline = ' '.join(proc.info['cmdline']) if proc.info['cmdline'] else ''
                     services.append({
                         "name": "OpenClaw Gateway",
-                        "pid": pid,
+                        "pid": str(proc.info['pid']),
                         "port": "18789",
                         "status": "Running",
                         "type": "system"
                     })
+                    break
+            except:
+                pass
         
-        # Get Python/Flask processes
+        # Check Brain Dashboard (this app)
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 cmdline = ' '.join(proc.info['cmdline']) if proc.info['cmdline'] else ''
-                if 'app.py' in cmdline and 'brain-dashboard' in cmdline:
+                if 'brain-dashboard' in cmdline or 'app.py' in cmdline:
                     services.append({
                         "name": "Brain Dashboard",
                         "pid": str(proc.info['pid']),
@@ -161,25 +162,47 @@ def get_running_services():
                         "status": "Running",
                         "type": "app"
                     })
+                    break
             except:
                 pass
         
         # Check Ollama
-        result = subprocess.run(['pgrep', '-a', 'ollama'], capture_output=True, text=True)
-        if result.stdout:
-            for line in result.stdout.strip().split('\n'):
-                if 'ollama' in line:
-                    parts = line.split(maxsplit=1)
-                    if len(parts) >= 2:
-                        pid, cmd = parts
-                        services.append({
-                            "name": "Ollama",
-                            "pid": pid,
-                            "port": "11434",
-                            "status": "Running",
-                            "type": "ai"
-                        })
-                        break
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if 'ollama' in proc.info['name'].lower():
+                    services.append({
+                        "name": "Ollama",
+                        "pid": str(proc.info['pid']),
+                        "port": "11434",
+                        "status": "Running",
+                        "type": "ai"
+                    })
+                    break
+            except:
+                pass
+        
+        # Check common ports
+        port_checks = {
+            22: "SSH",
+            80: "HTTP",
+            443: "HTTPS",
+            3000: "Node.js Dev",
+            8080: "Web Server",
+            5900: "VNC"
+        }
+        
+        for conn in psutil.net_connections(kind='inet'):
+            if conn.status == 'LISTEN' and conn.laddr.port in port_checks:
+                service_name = port_checks[conn.laddr.port]
+                # Check if not already added
+                if not any(s['name'] == service_name for s in services):
+                    services.append({
+                        "name": service_name,
+                        "pid": str(conn.pid) if conn.pid else "—",
+                        "port": str(conn.laddr.port),
+                        "status": "Running",
+                        "type": "system"
+                    })
         
     except Exception as e:
         services.append({"name": "Error", "error": str(e)})
@@ -273,23 +296,48 @@ def get_process_list():
     processes = []
     
     try:
-        procs = []
-        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'memory_info']):
+        # Initialize CPU percent for all processes
+        for proc in psutil.process_iter(['pid', 'name']):
             try:
-                pinfo = proc.info
-                procs.append({
-                    'pid': pinfo['pid'],
-                    'name': pinfo['name'][:25],
-                    'cpu': pinfo['cpu_percent'] or 0,
-                    'memory': pinfo['memory_percent'] or 0,
-                    'memory_mb': (pinfo['memory_info'].rss / 1024 / 1024) if pinfo['memory_info'] else 0
-                })
+                proc.cpu_percent()
             except:
                 pass
         
-        # Sort by memory usage and get top 10
-        procs.sort(key=lambda x: x['memory'], reverse=True)
-        processes = procs[:10]
+        # Wait a bit for CPU measurements
+        import time
+        time.sleep(0.5)
+        
+        procs = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'memory_info', 'status']):
+            try:
+                pinfo = proc.info
+                # Skip system processes and kernel tasks
+                name = pinfo['name']
+                if name in ['kernel_task', 'launchd', 'WindowServer', 'loginwindow']:
+                    continue
+                    
+                cpu = pinfo['cpu_percent'] or 0
+                memory = pinfo['memory_percent'] or 0
+                memory_mb = (pinfo['memory_info'].rss / 1024 / 1024) if pinfo['memory_info'] else 0
+                
+                # Only include processes using significant resources
+                if cpu > 0.1 or memory > 0.1 or memory_mb > 50:
+                    procs.append({
+                        'pid': pinfo['pid'],
+                        'name': name[:20],
+                        'cpu': round(cpu, 1),
+                        'memory': round(memory, 1),
+                        'memory_mb': round(memory_mb, 0),
+                        'status': pinfo.get('status', 'Unknown')
+                    })
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+            except:
+                pass
+        
+        # Sort by memory usage (highest first) and get top 15
+        procs.sort(key=lambda x: (x['memory'], x['cpu']), reverse=True)
+        processes = procs[:15]
         
     except Exception as e:
         processes = [{'error': str(e)}]
