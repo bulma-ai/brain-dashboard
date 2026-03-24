@@ -12,16 +12,16 @@
         }
         
         :root {
-            --bg-primary: #0a0a12;
+            --bg-primary: #0d0d12;
             --bg-secondary: #151520;
             --bg-card: rgba(255, 255, 255, 0.04);
             --accent-cyan: #00d4ff;
             --accent-purple: #9d4edd;
             --accent-green: #00ff88;
-            --accent-orange: #ffaa00;
+            --accent-orange: #ffa500;
             --accent-red: #ff4444;
             --text-primary: #ffffff;
-            --text-secondary: #888899;
+            --text-secondary: #8b8b9a;
             --border-color: rgba(255, 255, 255, 0.08);
         }
         
@@ -70,7 +70,7 @@
             font-family: 'Monaco', 'Consolas', monospace;
         }
         
-        /* Grid Layout - Responsive */
+        /* Grid Layout */
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -200,7 +200,6 @@
             white-space: nowrap;
         }
         
-        /* Process name column */
         .data-table td:first-child {
             max-width: 150px;
             overflow: hidden;
@@ -256,11 +255,6 @@
         
         .service-card.running {
             border-color: rgba(0, 255, 136, 0.3);
-        }
-        
-        .service-card.stopped {
-            border-color: rgba(255, 68, 68, 0.3);
-            opacity: 0.7;
         }
         
         .service-name {
@@ -340,7 +334,7 @@
             line-height: 1.4;
         }
         
-        /* Identity/User Cards */
+        /* Info Lists */
         .info-list {
             display: flex;
             flex-direction: column;
@@ -365,56 +359,7 @@
             color: var(--text-secondary);
         }
         
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 20px;
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-        }
-        
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-            
-            h1 {
-                font-size: 1.5rem;
-            }
-            
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-                gap: 12px;
-            }
-            
-            .card.wide {
-                grid-column: 1;
-            }
-            
-            .network-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .services-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .skills-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .data-table {
-                font-size: 0.8rem;
-            }
-            
-            .data-table th,
-            .data-table td {
-                padding: 8px 6px;
-            }
-        }
-        
-        /* Auto-refresh indicator */
+        /* Status Bar */
         .status-bar {
             position: fixed;
             bottom: 0;
@@ -460,8 +405,36 @@
             cursor: pointer;
         }
         
-        .refresh-btn:hover {
-            opacity: 0.9;
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            .card.wide {
+                grid-column: 1;
+            }
+            
+            .network-grid, .services-grid, .skills-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .data-table {
+                font-size: 0.8rem;
+            }
+            
+            .data-table th, .data-table td {
+                padding: 8px 6px;
+            }
         }
     </style>
 </head>
@@ -522,7 +495,7 @@
             <div class="card wide">
                 <div class="card-header">
                     <div class="card-icon">⚙️</div>
-                    <h2>Top Processes</h2>
+                    <h2>Top Processes (by Memory)</h2>
                 </div>
                 <div class="table-container" id="processes-content">
                     <p>Loading...</p>
@@ -539,16 +512,48 @@
                     <p>Loading...</p>
                 </div>
             </div>
+            
+            <!-- Identity -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">👤</div>
+                    <h2>Identity</h2>
+                </div>
+                <div id="identity-content">
+                    <p>Loading...</p>
+                </div>
+            </div>
+            
+            <!-- User -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🧑‍💻</div>
+                    <h2>User</h2>
+                </div>
+                <div id="user-content">
+                    <p>Loading...</p>
+                </div>
+            </div>
+            
+            <!-- Skills -->
+            <div class="card wide">
+                <div class="card-header">
+                    <div class="card-icon">📚</div>
+                    <h2>Available Skills</h2>
+                </div>
+                <div id="skills-content">
+                    <p>Loading...</p>
+                </div>
+            </div>
         </div>
     </div>
     
     <div class="status-bar">
-        <div class="refresh-indicator">Live Updates</div>
-        <button class="refresh-btn" onclick="fetchData()">🔄 Refresh</button>
+        <div class="refresh-indicator">Live Updates Every 5s</div>
+        <button class="refresh-btn" onclick="fetchData()">🔄 Refresh Now</button>
     </div>
     
     <script>
-        // Fetch and update all data
         async function fetchData() {
             try {
                 const response = await fetch('/api/system');
@@ -559,27 +564,14 @@
             }
         }
         
-        // Update dashboard with data
         function updateDashboard(data) {
-            // Update timestamp
             document.getElementById('timestamp').textContent = 'Last updated: ' + new Date(data.timestamp).toLocaleString();
             
-            // Update resources
             updateResources(data.resources);
-            
-            // Update network
             updateNetwork(data.network);
-            
-            // Update services
             updateServices(data.services);
-            
-            // Update ports
             updatePorts(data.ports);
-            
-            // Update processes
             updateProcesses(data.processes);
-            
-            // Update tools
             updateTools(data.tools);
         }
         
@@ -603,28 +595,31 @@
                         <div class="progress-fill ${cpuClass}" style="width: ${Math.min(resources.cpu_percent, 100)}%"></div>
                     </div>
                 </div>
+                
                 <div class="resource-item">
                     <div class="resource-header">
                         <span class="resource-label">Memory</span>
-                        <span class="resource-value" style="color: var(--accent-${memClass === 'high' ? 'red' : memClass === 'medium' ? 'orange' : 'green'})">${resources.memory.used.toFixed(1)} / ${resources.memory.total.toFixed(1)} GB</span>
+                        <span class="resource-value" style="color: var(--accent-${memClass === 'high' ? 'red' : memClass === 'medium' ? 'orange' : 'green'})">${resources.memory.used} / ${resources.memory.total} GB (${resources.memory.percent}%)</span>
                     </div>
                     <div class="progress-bar">
                         <div class="progress-fill ${memClass}" style="width: ${resources.memory.percent}%"></div>
                     </div>
                 </div>
+                
                 <div class="resource-item">
                     <div class="resource-header">
                         <span class="resource-label">Disk</span>
-                        <span class="resource-value" style="color: var(--accent-${diskClass === 'high' ? 'red' : diskClass === 'medium' ? 'orange' : 'green'})">${resources.disk.used.toFixed(0)} / ${resources.disk.total.toFixed(0)} GB</span>
+                        <span class="resource-value" style="color: var(--accent-${diskClass === 'high' ? 'red' : diskClass === 'medium' ? 'orange' : 'green'})">${resources.disk.used} / ${resources.disk.total} GB</span>
                     </div>
                     <div class="progress-bar">
                         <div class="progress-fill ${diskClass}" style="width: ${resources.disk.percent}%"></div>
                     </div>
                 </div>
+                
                 <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">
                     <div class="resource-header">
                         <span class="resource-label">Load Average</span>
-                        <span class="resource-value">${resources.load_avg['1min'].toFixed(2)} / ${resources.load_avg['5min'].toFixed(2)} / ${resources.load_avg['15min'].toFixed(2)}</span>
+                        <span class="resource-value">${resources.load_avg['1min']} / ${resources.load_avg['5min']} / ${resources.load_avg['15min']}</span>
                     </div>
                 </div>
             `;
@@ -729,9 +724,9 @@
                 return `
                 <tr>
                     <td title="PID: ${p.pid}">${p.name}</td>
-                    <td style="color: ${cpuColor}">${p.cpu.toFixed(1)}%</td>
-                    <td style="color: ${memColor}">${p.memory.toFixed(1)}%</td>
-                    <td>${p.memory_mb.toFixed(0)} MB</td>
+                    <td style="color: ${cpuColor}">${p.cpu}%</td>
+                    <td style="color: ${memColor}">${p.memory}%</td>
+                    <td>${p.memory_mb} MB</td>
                     <td><span class="badge ${p.status === 'running' ? 'success' : 'info'}">${p.status}</span></td>
                 </tr>
             `}).join('');
